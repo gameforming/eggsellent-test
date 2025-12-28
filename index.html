@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8">
+<title>Eggsellent Inventory Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+body {
+    font-family: 'Segoe UI', sans-serif;
+    background: linear-gradient(135deg, #fff6e5, #ffe0a3);
+    margin: 0;
+    padding: 0;
+}
+header {
+    background: #ff9800;
+    color: white;
+    padding: 20px;
+    font-size: 26px;
+    font-weight: bold;
+}
+.container {
+    padding: 20px;
+    max-width: 1100px;
+    margin: auto;
+}
+.card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+}
+input, button {
+    padding: 8px;
+    margin: 5px;
+    border-radius: 6px;
+    border: 1px solid #ccc;
+}
+button {
+    background: #ff9800;
+    color: white;
+    border: none;
+    cursor: pointer;
+}
+button:hover {
+    background: #e68900;
+}
+table {
+    width: 100%;
+    border-collapse: collapse;
+}
+th, td {
+    padding: 8px;
+    border-bottom: 1px solid #ddd;
+    text-align: center;
+}
+th {
+    background: #fff2d6;
+}
+.delete {
+    background: #e53935;
+}
+.edit {
+    background: #fb8c00;
+}
+.hidden {
+    display: none;
+}
+.login-box {
+    max-width: 400px;
+    margin: 100px auto;
+    text-align: center;
+}
+</style>
+</head>
+
+<body>
+
+<header>🥚 Eggsellent – Inventory Dashboard</header>
+
+<!-- LOGIN -->
+<div id="login" class="login-box card">
+    <h2>Login</h2>
+    <input type="password" id="password" placeholder="Wachtwoord">
+    <br>
+    <button onclick="login()">Inloggen</button>
+    <p id="loginError" style="color:red;"></p>
+</div>
+
+<!-- DASHBOARD -->
+<div id="app" class="container hidden">
+
+<div class="card">
+<h2>📅 Nieuwe week invoeren</h2>
+<input id="week" type="number" placeholder="Week">
+<input id="year" type="number" placeholder="Jaar"><br>
+<input id="start" type="number" placeholder="Begin voorraad">
+<input id="sold" type="number" placeholder="Verkocht">
+<input id="ordered" type="number" placeholder="Besteld"><br>
+<button onclick="saveData()">Opslaan</button>
+</div>
+
+<div class="card">
+<h2>📦 Opgeslagen data</h2>
+<p id="storageInfo"></p>
+<table id="table">
+<tr>
+<th>Week</th><th>Jaar</th><th>Begin</th><th>Verkocht</th><th>Besteld</th><th>Eind</th><th>Acties</th>
+</tr>
+</table>
+</div>
+
+<div class="card">
+<h2>📊 Verkoop + AI voorspelling</h2>
+<canvas id="chart"></canvas>
+</div>
+
+</div>
+
+<script>
+const PASSWORD = "Eggsellent2020";
+let inventory = JSON.parse(localStorage.getItem("eggInventory")) || [];
+let editIndex = null;
+let chart;
+
+// LOGIN
+function login() {
+    if (password.value === PASSWORD) {
+        localStorage.setItem("loggedIn", "true");
+        loginDiv(false);
+    } else {
+        loginError.innerText = "Verkeerd wachtwoord";
+    }
+}
+
+function loginDiv(loggedIn) {
+    document.getElementById("login").classList.toggle("hidden", loggedIn);
+    document.getElementById("app").classList.toggle("hidden", !loggedIn);
+}
+
+if (localStorage.getItem("loggedIn") === "true") {
+    loginDiv(true);
+    render();
+}
+
+// DATA
+function saveData() {
+    const w = Number(week.value);
+    const y = Number(year.value);
+    const s = Number(start.value);
+    const soldN = Number(sold.value);
+    const o = Number(ordered.value);
+    const end = s - soldN + o;
+
+    const obj = {w,y,s,soldN,o,end};
+
+    if (editIndex !== null) {
+        inventory[editIndex] = obj;
+        editIndex = null;
+    } else {
+        inventory.push(obj);
+    }
+
+    localStorage.setItem("eggInventory", JSON.stringify(inventory));
+    render();
+}
+
+function render() {
+    const t = document.getElementById("table");
+    t.innerHTML = `<tr><th>Week</th><th>Jaar</th><th>Begin</th><th>Verkocht</th><th>Besteld</th><th>Eind</th><th>Acties</th></tr>`;
+
+    inventory.forEach((d,i)=>{
+        t.innerHTML += `
+        <tr>
+            <td>${d.w}</td>
+            <td>${d.y}</td>
+            <td>${d.s}</td>
+            <td>${d.soldN}</td>
+            <td>${d.o}</td>
+            <td>${d.end}</td>
+            <td>
+                <button class="edit" onclick="edit(${i})">✏</button>
+                <button class="delete" onclick="del(${i})">🗑</button>
+            </td>
+        </tr>`;
+    });
+
+    updateStorage();
+    drawChart();
+}
+
+function edit(i) {
+    const d = inventory[i];
+    week.value=d.w; year.value=d.y;
+    start.value=d.s; sold.value=d.soldN; ordered.value=d.o;
+    editIndex=i;
+}
+
+function del(i) {
+    inventory.splice(i,1);
+    localStorage.setItem("eggInventory", JSON.stringify(inventory));
+    render();
+}
+
+function updateStorage() {
+    const mb = new Blob([JSON.stringify(inventory)]).size / 1024 / 1024;
+    storageInfo.innerText = `Opslag gebruikt: ${mb.toFixed(3)} MB`;
+}
+
+// SLIMMERE AI
+function aiPredict(values) {
+    if (values.length < 3) return values.at(-1) || 0;
+    let n = values.length;
+    let xSum=0,ySum=0,xySum=0,x2Sum=0;
+    values.forEach((y,x)=>{
+        xSum+=x; ySum+=y; xySum+=x*y; x2Sum+=x*x;
+    });
+    let slope = (n*xySum - xSum*ySum) / (n*x2Sum - xSum*xSum);
+    let intercept = (ySum - slope*xSum) / n;
+    return Math.max(0, Math.round(slope*n + intercept));
+}
+
+function drawChart() {
+    const labels = inventory.map(d=>`W${d.w}-${d.y}`);
+    const sales = inventory.map(d=>d.soldN);
+    const prediction = aiPredict(sales);
+
+    if (chart) chart.destroy();
+    chart = new Chart(chartCanvas, {
+        type:'line',
+        data:{
+            labels:[...labels,"Volgende week (AI)"],
+            datasets:[{
+                label:"Verkoop",
+                data:[...sales,prediction],
+                borderWidth:3
+            }]
+        }
+    });
+}
+</script>
+
+</body>
+</html>
