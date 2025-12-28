@@ -124,21 +124,30 @@ let inventory = JSON.parse(localStorage.getItem("eggInventory")) || [];
 let editIndex = null;
 let chart;
 
+// ELEMENTEN
+const loginDivEl = document.getElementById("login");
+const appDivEl = document.getElementById("app");
+const passwordInput = document.getElementById("password");
+const loginErrorEl = document.getElementById("loginError");
+const chartCanvas = document.getElementById("chart");
+
 // LOGIN
 function login() {
-    if (password.value === PASSWORD) {
+    if (passwordInput.value === PASSWORD) {
         localStorage.setItem("loggedIn", "true");
-        loginDiv(false);
+        loginDiv(true);
+        render();
     } else {
-        loginError.innerText = "Verkeerd wachtwoord";
+        loginErrorEl.innerText = "Verkeerd wachtwoord";
     }
 }
 
 function loginDiv(loggedIn) {
-    document.getElementById("login").classList.toggle("hidden", loggedIn);
-    document.getElementById("app").classList.toggle("hidden", !loggedIn);
+    loginDivEl.classList.toggle("hidden", loggedIn);
+    appDivEl.classList.toggle("hidden", !loggedIn);
 }
 
+// Als al ingelogd
 if (localStorage.getItem("loggedIn") === "true") {
     loginDiv(true);
     render();
@@ -146,11 +155,11 @@ if (localStorage.getItem("loggedIn") === "true") {
 
 // DATA
 function saveData() {
-    const w = Number(week.value);
-    const y = Number(year.value);
-    const s = Number(start.value);
-    const soldN = Number(sold.value);
-    const o = Number(ordered.value);
+    const w = Number(document.getElementById("week").value);
+    const y = Number(document.getElementById("year").value);
+    const s = Number(document.getElementById("start").value);
+    const soldN = Number(document.getElementById("sold").value);
+    const o = Number(document.getElementById("ordered").value);
     const end = s - soldN + o;
 
     const obj = {w,y,s,soldN,o,end};
@@ -192,8 +201,11 @@ function render() {
 
 function edit(i) {
     const d = inventory[i];
-    week.value=d.w; year.value=d.y;
-    start.value=d.s; sold.value=d.soldN; ordered.value=d.o;
+    document.getElementById("week").value=d.w;
+    document.getElementById("year").value=d.y;
+    document.getElementById("start").value=d.s;
+    document.getElementById("sold").value=d.soldN;
+    document.getElementById("ordered").value=d.o;
     editIndex=i;
 }
 
@@ -205,7 +217,7 @@ function del(i) {
 
 function updateStorage() {
     const mb = new Blob([JSON.stringify(inventory)]).size / 1024 / 1024;
-    storageInfo.innerText = `Opslag gebruikt: ${mb.toFixed(3)} MB`;
+    document.getElementById("storageInfo").innerText = `Opslag gebruikt: ${mb.toFixed(3)} MB`;
 }
 
 // SLIMMERE AI
@@ -234,11 +246,23 @@ function drawChart() {
             datasets:[{
                 label:"Verkoop",
                 data:[...sales,prediction],
-                borderWidth:3
+                borderWidth:3,
+                borderColor:"#ff9800",
+                backgroundColor:"rgba(255,152,0,0.2)"
             }]
+        },
+        options: {
+            responsive:true,
+            plugins: {
+                legend: { display:true },
+            },
+            scales: {
+                y: { beginAtZero:true }
+            }
         }
     });
 }
+
 </script>
 
 </body>
